@@ -23,8 +23,8 @@ public:
 template <class T>
 class List
 {
-	 size_t curElement; size_t count;
-	 Node<T> *head, *tail, *current, *previous;
+	 size_t curElementIndex; size_t count;
+	 Node<T> *head, *tail, *current;
 
 private:
 #pragma region Low-level private functions
@@ -34,12 +34,10 @@ private:
 	void SetTailNode(Node<T>* n) { tail = n; }
 	void SetCurrentNode(Node<T>* n) { current = n; }
 	void SetCurrentValue(T n) { current->SetData(n); }
-	void SetPreviousNode(Node<T>* n) { previous = n; }
 	Node<T>* GetHeadNode() { return head; }
 	Node<T>* GetTailNode() { return tail; }
 	Node<T>* GetCurrentNode() { return current; }
 	T GetCurrentValue() { return GetCurrentNode()->GetData(); }
-	Node<T>* GetPreviousNode() { return previous; }
 
 	//Some basic movement logic
 	Node <T>* GetNode(size_t i)
@@ -47,25 +45,23 @@ private:
 		if (i<0 || i > count - 1)
 			return nullptr;
 
-		if (curElement > i)
+		if (curElementIndex > i)
 			MoveToHead();
 
-		for (size_t j = curElement; j < i; j++)
+		for (size_t j = curElementIndex; j < i; j++)
 			MoveForward();
 
 		return GetCurrentNode();
 	}
 	void MoveForward()
 	{
-		SetPreviousNode(GetCurrentNode());
 		SetCurrentNode(GetCurrentNode()->GetNext());
-		curElement++;
+		curElementIndex++;
 	}
 	void MoveToHead()
 	{
-		SetPreviousNode(nullptr);
 		SetCurrentNode(head);
-		curElement = 0;
+		curElementIndex = 0;
 	}
 	void MoveToTail()
 	{
@@ -84,7 +80,7 @@ private:
 
 public:
 	~List() {Clear();}
-	List() : count(0), curElement(0), head(nullptr), tail(nullptr), current(nullptr), previous(nullptr) {}
+	List() : count(0), curElementIndex(0), head(nullptr), tail(nullptr), current(nullptr) {}
 
 	template <class T>
 	void AddValues(std::initializer_list<T> list)
@@ -180,40 +176,40 @@ public:
 
 		MoveToHead();
 	}
-	/*+*/size_t FindFirst(List<T>& list)
+	/*+*/size_t FindFirst(List<T>& other)
 	{
 		//1. go through this list and get first matching element
 		//2. then check others in row -> if this contains all -> return first element's index or continue
 		//2.5 Consider some special cases, when list is smaller/bigger than this
-		size_t firstLength = GetSize();
-		size_t secondLength = list.GetSize();
+		size_t listLength = GetSize();
+		size_t otherListLength = other.GetSize();
 
-		if ((secondLength > firstLength) || (secondLength == 0 || firstLength == 0))
+		if ((otherListLength > listLength) || (otherListLength == 0 || listLength == 0))
 			return -1;
 
-		for (size_t i = 0; i < firstLength; i++)
+		for (size_t i = 0; i < listLength; i++)
 		{
 
-			for (size_t j = 0; j < secondLength; j++)
+			for (size_t j = 0; j < otherListLength; j++)
 			{
-				// if elements count from first is already smaller than second's length, we know first doesnt contain it for sure
-				if (firstLength - i < secondLength)
+				// if elements count from list is already smaller than other's length, we know list doesnt contain other for sure
+				if (listLength - i < otherListLength)
 					return -1;
 
-				T val1 = At(i);
-				T val2 = list.At(j);
+				T listElement = At(i);
+				T otherListElement = other.At(j);
 
 				//we have first elements
-				if (val1 == val2)
+				if (listElement == otherListElement)
 				{
 					bool success = true;
 
 					//check others
-					for (size_t el = 1; el < secondLength - j; el++)
+					for (size_t el = 1; el < otherListLength - j; el++)
 					{
-						T val11 = At(i + el);
-						T val22 = list.At(j + el);
-						if (val11 != val22)
+						T nextListElement = At(i + el);
+						T nextOtherElement = other.At(j + el);
+						if (nextListElement != nextOtherElement)
 						{
 							success = false;
 							break;
@@ -251,7 +247,7 @@ public:
 
 		//Check if list is clean and if so, setup global pointers
 		if(IsEmpty())
-			head = current = previous = tail = toAdd;
+			head = current = tail = toAdd;
 		else
 		{
 			//or just add new value to tail
@@ -269,7 +265,7 @@ public:
 		//Check if list is clean and if so, setup global pointers
 		// OH IT IS SO GREAT TO HAVE FUNCTIONS, WHICH JUST WORK
 		if (IsEmpty())
-			head = current = previous = tail = toAdd;
+			head = current = tail = toAdd;
 		else
 		{
 			toAdd->SetNext(head);
@@ -409,10 +405,12 @@ public:
 		{
 			//Delete all elements from head
 			MoveToHead();
+			
 			do
 			{
+				Node<T>* ToDelete = GetCurrentNode();
 				MoveForward();
-				delete GetPreviousNode();
+				delete ToDelete;
 			} while (GetCurrentNode() != nullptr);
 		}
 		count = 0;
