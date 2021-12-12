@@ -1,43 +1,28 @@
 #pragma once
 #include <stdexcept>
+#include "Node.h"
 
-//Holder class for lists
-template <class T>
-class Node
-{
-	Node<T>* next; T data;
-public:
-	~Node() {}
-	Node() : next(nullptr) {}
-	Node(T value) : data(value), next(nullptr) {}
-
-	void SetNext(Node<T>* nextElement) {next = nextElement;}
-	void SetData(T newData)
-	{
-		data = newData;
-	}
-	Node* GetNext() {return next;}
-	T GetData() {return data;}
-};
 
 template <class T>
 class List
 {
-	 size_t curElementIndex; size_t count;
-	 Node<T> *head, *tail, *current;
+	 size_t curElement; size_t count;
+	 Node<T> *head, *tail, *current, *previous;
 
 private:
 #pragma region Low-level private functions
 
 	//Basic field accessors
-	void SetHeadNode(Node<T>* node) { head = node; }
-	void SetTailNode(Node<T>* node) { tail = node; }
-	void SetCurrentNode(Node<T>* node) { current = node; }
-	void SetCurrentValue(T node) { current->SetData(node); }
+	void SetHeadNode(Node<T>* n) { head = n; }
+	void SetTailNode(Node<T>* n) { tail = n; }
+	void SetCurrentNode(Node<T>* n) { current = n; }
+	void SetCurrentValue(T n) { current->SetData(n); }
+	void SetPreviousNode(Node<T>* n) { previous = n; }
 	Node<T>* GetHeadNode() { return head; }
 	Node<T>* GetTailNode() { return tail; }
 	Node<T>* GetCurrentNode() { return current; }
 	T GetCurrentValue() { return GetCurrentNode()->GetData(); }
+	Node<T>* GetPreviousNode() { return previous; }
 
 	//Some basic movement logic
 	Node <T>* GetNode(size_t i)
@@ -45,27 +30,29 @@ private:
 		if (i<0 || i > count - 1)
 			return nullptr;
 
-		if (curElementIndex > i)
+		if (curElement > i)
 			MoveToHead();
 
-		for (size_t j = curElementIndex; j < i; j++)
+		for (size_t j = curElement; j < i; j++)
 			MoveForward();
 
 		return GetCurrentNode();
 	}
 	void MoveForward()
 	{
+		SetPreviousNode(GetCurrentNode());
 		SetCurrentNode(GetCurrentNode()->GetNext());
-		curElementIndex++;
+		curElement++;
 	}
 	void MoveToHead()
 	{
+		SetPreviousNode(nullptr);
 		SetCurrentNode(head);
-		curElementIndex = 0;
+		curElement = 0;
 	}
 	void MoveToTail()
 	{
-		//+ MoveToHead();
+		MoveToHead();
 		while (GetCurrentNode()->GetNext() != nullptr)
 			MoveForward();
 	}
@@ -80,14 +67,14 @@ private:
 
 public:
 	~List() {Clear();}
-	List() : count(0), curElementIndex(0), head(nullptr), tail(nullptr), current(nullptr) {}
+	List() : count(0), curElement(0), head(nullptr), tail(nullptr), current(nullptr), previous(nullptr) {}
 
 	template <class T>
 	void AddValues(std::initializer_list<T> list)
 	{
 		for (auto elem : list)
 		{
-			PushBack(elem);
+			Add(elem);
 		}
 	}
 
@@ -176,78 +163,14 @@ public:
 
 		MoveToHead();
 	}
-	/*+*/size_t FindFirst(List<T>& other)
-	{
-		//1. go through this list and get first matching element
-		//2. then check others in row -> if this contains all -> return first element's index or continue
-		//2.5 Consider some special cases, when list is smaller/bigger than this
-		size_t listLength = GetSize();
-		size_t otherListLength = other.GetSize();
 
-		if ((otherListLength > listLength) || (otherListLength == 0 || listLength == 0))
-			return -1;
-
-		for (size_t i = 0; i < listLength; i++)
-		{
-
-			for (size_t j = 0; j < otherListLength; j++)
-			{
-				// if elements count from list is already smaller than other's length, we know list doesnt contain other for sure
-				if (listLength - i < otherListLength)
-					return -1;
-
-				T listElement = At(i);
-				T otherListElement = other.At(j);
-
-				//we have first elements
-				if (listElement == otherListElement)
-				{
-					bool success = true;
-
-					//check others
-					for (size_t el = 1; el < otherListLength - j; el++)
-					{
-						T nextListElement = At(i + el);
-						T nextOtherElement = other.At(j + el);
-						if (nextListElement != nextOtherElement)
-						{
-							success = false;
-							break;
-						}
-					}
-
-					if (success)
-						return i;
-				}
-				else
-					break;
-
-			}
-
-		}
-	}
-
-	//My variant - 7
-	/*+*/void PushFront(List<T>& value)
-	{
-		//1. get numbers
-		//2. push numbers in reverse to front
-
-		//std::cout << "second size: " << value.GetSize() << std::endl;
-		for (int i = value.GetSize() - 1; i >= 0 ; i--)
-		{
-			//std::cout << "index: " << i << std::endl;
-			PushFront(value[i]);
-		}
-	}
-
-	/*+*/void PushBack(T value)
+	/*+*/void Add(T value)
 	{
 		Node<T>* toAdd = new Node<T>(value);
 
 		//Check if list is clean and if so, setup global pointers
 		if(IsEmpty())
-			head = current = tail = toAdd;
+			head = current = previous = tail = toAdd;
 		else
 		{
 			//or just add new value to tail
@@ -258,14 +181,14 @@ public:
 		count++;
 		
 	}
-	/*+*/void PushFront(T value)
+	/*+*/void InsertFirst(T value)
 	{
 		Node<T>* toAdd = new Node<T>(value);
 
 		//Check if list is clean and if so, setup global pointers
 		// OH IT IS SO GREAT TO HAVE FUNCTIONS, WHICH JUST WORK
 		if (IsEmpty())
-			head = current = tail = toAdd;
+			head = current = previous = tail = toAdd;
 		else
 		{
 			toAdd->SetNext(head);
@@ -331,7 +254,7 @@ public:
 		//Check if index is ok
 		CheckBounds(index);
 
-		//+MoveToHead();
+		MoveToHead();
 
 		//previous can be null!!!
 		Node<T>* previousNode = GetNode(index - 1);
@@ -348,7 +271,7 @@ public:
 			head = toInsert;
 
 		count++;
-		//+MoveToHead();
+		MoveToHead();
 	}
 	T At(size_t index)
 	{
@@ -405,12 +328,10 @@ public:
 		{
 			//Delete all elements from head
 			MoveToHead();
-			
 			do
 			{
-				Node<T>* ToDelete = GetCurrentNode();
 				MoveForward();
-				delete ToDelete;
+				delete GetPreviousNode();
 			} while (GetCurrentNode() != nullptr);
 		}
 		count = 0;
@@ -428,7 +349,56 @@ public:
 	} 
 	
 	
-	
+	/*+*/size_t FindFirst(List<T>& list)
+	{
+		//1. go through this list and get first matching element
+		//2. then check others in row -> if this contains all -> return first element's index or continue
+		//2.5 Consider some special cases, when list is smaller/bigger than this
+		size_t firstLength = GetSize();
+		size_t secondLength = list.GetSize();
+
+		if ((secondLength > firstLength) || (secondLength == 0 || firstLength == 0))
+			return -1;
+
+		for (size_t i = 0; i < firstLength; i++)
+		{
+			
+			for (size_t j = 0; j < secondLength; j++)
+			{
+				// if elements count from first is already smaller than second's length, we know first doesnt contain it for sure
+				if (firstLength - i < secondLength)
+					return -1;
+
+				T val1 = At(i);
+				T val2 = list.At(j);
+
+				//we have first elements
+				if (val1 == val2)
+				{
+					bool success = true;
+
+					//check others
+					for (size_t el = 1; el < secondLength - j; el++)
+					{
+						T val11 = At(i + el);
+						T val22 = list.At(j + el);
+						if (val11 != val22)
+						{
+							success = false;
+							break;
+						}
+					}
+
+					if (success)
+						return i;
+				}
+				else
+					break;
+
+			}
+
+		}
+	}
 	//WHY IS IT HERE
 	void PrintToConsole()
 	{
@@ -449,5 +419,12 @@ public:
 			T val = GetCurrentValue();
 			MoveForward();
 		}
+	}
+
+	//copy constructor
+	List<T>(List<T>& other)
+	{
+		for (size_t i = 0; i < other.count; i++)
+			this->Add(other.At(i));
 	}
 };
